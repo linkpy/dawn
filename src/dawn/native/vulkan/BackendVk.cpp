@@ -22,6 +22,7 @@
 #include "dawn/common/Log.h"
 #include "dawn/common/SystemUtils.h"
 #include "dawn/native/Instance.h"
+#include "dawn/native/ChainUtils.h"
 #include "dawn/native/VulkanBackend.h"
 #include "dawn/native/vulkan/DeviceVk.h"
 #include "dawn/native/vulkan/PhysicalDeviceVk.h"
@@ -261,13 +262,13 @@ const std::vector<VkPhysicalDevice>& VulkanInstance::GetVkPhysicalDevices() cons
 }
 
 // static
-ResultOrError<Ref<VulkanInstance>> VulkanInstance::Create(const InstanceBase* instance, ICD icd) {
+ResultOrError<Ref<VulkanInstance>> VulkanInstance::Create(const InstanceBase* instance, ICD icd, const VulkanFunctionOverrides* overrides) {
     Ref<VulkanInstance> vulkanInstance = AcquireRef(new VulkanInstance());
-    DAWN_TRY(vulkanInstance->Initialize(instance, icd));
+    DAWN_TRY(vulkanInstance->Initialize(instance, icd, overrides));
     return std::move(vulkanInstance);
 }
 
-MaybeError VulkanInstance::Initialize(const InstanceBase* instance, ICD icd) {
+MaybeError VulkanInstance::Initialize(const InstanceBase* instance, ICD icd, const VulkanFunctionOverrides* overrides) {
     // These environment variables need only be set while loading procs and gathering device
     // info.
     ScopedEnvironmentVar vkICDFilenames;
@@ -341,7 +342,7 @@ MaybeError VulkanInstance::Initialize(const InstanceBase* instance, ICD icd) {
 #endif
 
     VulkanGlobalKnobs usedGlobalKnobs = {};
-    DAWN_TRY_ASSIGN(usedGlobalKnobs, CreateVkInstance(instance));
+    DAWN_TRY_ASSIGN(usedGlobalKnobs, CreateVkInstance(instance, overrides));
     *static_cast<VulkanGlobalKnobs*>(&mGlobalInfo) = usedGlobalKnobs;
 
     DAWN_TRY(mFunctions.LoadInstanceProcs(mInstance, mGlobalInfo));
@@ -355,7 +356,7 @@ MaybeError VulkanInstance::Initialize(const InstanceBase* instance, ICD icd) {
     return {};
 }
 
-ResultOrError<VulkanGlobalKnobs> VulkanInstance::CreateVkInstance(const InstanceBase* instance) {
+ResultOrError<VulkanGlobalKnobs> VulkanInstance::CreateVkInstance(const InstanceBase* instance, const VulkanFunctionOverrides* overrides) {
     VulkanGlobalKnobs usedKnobs = {};
     std::vector<const char*> layerNames;
     InstanceExtSet extensionsToRequest = mGlobalInfo.extensions;
@@ -365,7 +366,7 @@ ResultOrError<VulkanGlobalKnobs> VulkanInstance::CreateVkInstance(const Instance
             layerNames.push_back(GetVulkanLayerInfo(layer).name);
             usedKnobs.layers.set(layer, true);
             extensionsToRequest |= mGlobalInfo.layerExtensions[layer];
-        }
+        } 
     };
 
     // vktrace works by instering a layer, but we hide it behind a macro because the vktrace
@@ -454,8 +455,13 @@ ResultOrError<VulkanGlobalKnobs> VulkanInstance::CreateVkInstance(const Instance
         createInfoChain.Add(&validationFeatures, VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT);
     }
 
-    DAWN_TRY(CheckVkSuccess(mFunctions.CreateInstance(&createInfo, nullptr, &mInstance),
-                            "vkCreateInstance"));
+    if (overrides != nullptr && overrides->vkCreateInstance != nullptr) {
+        DAWN_TRY(CheckVkSuccess(overrides->vkCreateInstance(overrides->userdata, mFunctions.GetInstanceProcAddr, &createInfo, nullptr, &mInstance),
+                                "VulkanFunctionOverrides->vkCreateInstance"));
+    } else {
+        DAWN_TRY(CheckVkSuccess(mFunctions.CreateInstance(&createInfo, nullptr, &mInstance),
+                                "vkCreateInstance"));
+    }
 
     return usedKnobs;
 }
@@ -517,8 +523,11 @@ std::vector<Ref<PhysicalDeviceBase>> Backend::DiscoverPhysicalDevices(
             if (!mVulkanInstancesCreated[icd]) {
                 mVulkanInstancesCreated.set(icd);
 
+                const VulkanFunctionOverrides* overrides = nullptr;
+                FindInChain(options->nextInChain, &overrides);
+
                 instance->ConsumedErrorAndWarnOnce([&]() -> MaybeError {
-                    DAWN_TRY_ASSIGN(mVulkanInstances[icd], VulkanInstance::Create(instance, icd));
+                    DAWN_TRY_ASSIGN(mVulkanInstances[icd], VulkanInstance::Create(instance, icd, overrides));
                     return {};
                 }());
             }

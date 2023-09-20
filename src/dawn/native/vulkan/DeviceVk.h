@@ -163,7 +163,7 @@ class Device final : public DeviceBase {
     ResultOrError<wgpu::TextureUsage> GetSupportedSurfaceUsageImpl(
         const Surface* surface) const override;
 
-    ResultOrError<VulkanDeviceKnobs> CreateDevice(VkPhysicalDevice vkPhysicalDevice);
+    ResultOrError<VulkanDeviceKnobs> CreateDevice(VkPhysicalDevice vkPhysicalDevice, const VulkanFunctionOverrides* overrides);
     void GatherQueueFromDevice();
 
     MaybeError CheckDebugLayerAndGenerateErrors();

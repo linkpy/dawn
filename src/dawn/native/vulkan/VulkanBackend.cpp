@@ -23,6 +23,8 @@
 
 #include "dawn/native/vulkan/DeviceVk.h"
 #include "dawn/native/vulkan/TextureVk.h"
+#include "dawn/native/vulkan/PhysicalDeviceVk.h"
+
 
 namespace dawn::native::vulkan {
 
@@ -34,6 +36,21 @@ VkInstance GetInstance(WGPUDevice device) {
 DAWN_NATIVE_EXPORT PFN_vkVoidFunction GetInstanceProcAddr(WGPUDevice device, const char* pName) {
     Device* backendDevice = ToBackend(FromAPI(device));
     return (*backendDevice->fn.GetInstanceProcAddr)(backendDevice->GetVkInstance(), pName);
+}
+
+uint32_t GetVulkanGraphicsQueueFamilyIndex(WGPUDevice device) {
+    Device* dev = ToBackend(FromAPI(device));
+    return dev->GetGraphicsQueueFamily();
+}
+
+uint32_t GetVulkanGraphicsQueueIndex(WGPUDevice device) {
+    // The vulkan backend always creates a single queue, so the queue index will 
+    // always be 0.
+    return 0; 
+}
+
+VulkanFunctionOverrides::VulkanFunctionOverrides() {
+    sType = wgpu::SType::VulkanFunctionOverrides;
 }
 
 PhysicalDeviceDiscoveryOptions::PhysicalDeviceDiscoveryOptions()

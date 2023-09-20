@@ -317,4 +317,12 @@ FeatureInfo GetFeatureInfo(wgpu::FeatureName featureName) {
     return kFeatureNameAndInfoList[FromAPI(featureName)];
 }
 
+WGPUAdapter GetWGPUAdapter(WGPUDevice device) {
+    return ToAPI(FromAPI(device)->GetAdapter());
+}
+
+WGPUBackendType GetWGPUBackendType(WGPUAdapter adapter) {
+    return ToAPI(FromAPI(adapter)->GetPhysicalDevice()->GetBackendType());
+}
+
 }  // namespace dawn::native

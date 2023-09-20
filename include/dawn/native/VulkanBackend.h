@@ -28,6 +28,21 @@ DAWN_NATIVE_EXPORT VkInstance GetInstance(WGPUDevice device);
 
 DAWN_NATIVE_EXPORT PFN_vkVoidFunction GetInstanceProcAddr(WGPUDevice device, const char* pName);
 
+DAWN_NATIVE_EXPORT uint32_t GetVulkanGraphicsQueueFamilyIndex(WGPUDevice device);
+
+DAWN_NATIVE_EXPORT uint32_t GetVulkanGraphicsQueueIndex(WGPUDevice device);
+
+struct DAWN_NATIVE_EXPORT VulkanFunctionOverrides : wgpu::ChainedStruct {
+  VulkanFunctionOverrides();
+
+  typedef ::VkResult (*CreateInstancePfn)(void*, PFN_vkGetInstanceProcAddr, VkInstanceCreateInfo*, const VkAllocationCallbacks*, VkInstance*);
+  typedef ::VkResult (*CreateDevicePfn)(void*, PFN_vkGetInstanceProcAddr, VkInstance, VkPhysicalDevice, const VkDeviceCreateInfo*, const VkAllocationCallbacks*, VkDevice*);
+
+  void* userdata = nullptr;
+  CreateInstancePfn vkCreateInstance = nullptr;
+  CreateDevicePfn vkCreateDevice = nullptr;
+};
+
 struct DAWN_NATIVE_EXPORT PhysicalDeviceDiscoveryOptions
     : public PhysicalDeviceDiscoveryOptionsBase {
     PhysicalDeviceDiscoveryOptions();

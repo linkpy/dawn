@@ -107,6 +107,9 @@ MaybeError Device::Initialize(const DeviceDescriptor* descriptor) {
     // Copy the adapter's device info to the device so that we can change the "knobs"
     mDeviceInfo = ToBackend(GetPhysicalDevice())->GetDeviceInfo();
 
+    const VulkanFunctionOverrides* overrides = nullptr;
+    FindInChain(descriptor->nextInChain, &overrides);
+
     // Initialize the "instance" procs of our local function table.
     VulkanFunctions* functions = GetMutableFunctions();
     *functions = ToBackend(GetPhysicalDevice())->GetVulkanInstance()->GetFunctions();
@@ -117,9 +120,10 @@ MaybeError Device::Initialize(const DeviceDescriptor* descriptor) {
     // DestroyImpl()
     {
         VkPhysicalDevice vkPhysicalDevice = ToBackend(GetPhysicalDevice())->GetVkPhysicalDevice();
+        
 
         VulkanDeviceKnobs usedDeviceKnobs = {};
-        DAWN_TRY_ASSIGN(usedDeviceKnobs, CreateDevice(vkPhysicalDevice));
+        DAWN_TRY_ASSIGN(usedDeviceKnobs, CreateDevice(vkPhysicalDevice, overrides));
         *static_cast<VulkanDeviceKnobs*>(&mDeviceInfo) = usedDeviceKnobs;
 
         DAWN_TRY(functions->LoadDeviceProcs(mVkDevice, mDeviceInfo));
@@ -399,7 +403,7 @@ MaybeError Device::SubmitPendingCommands() {
     return {};
 }
 
-ResultOrError<VulkanDeviceKnobs> Device::CreateDevice(VkPhysicalDevice vkPhysicalDevice) {
+ResultOrError<VulkanDeviceKnobs> Device::CreateDevice(VkPhysicalDevice vkPhysicalDevice, const VulkanFunctionOverrides* overrides) {
     VulkanDeviceKnobs usedKnobs = {};
 
     // Default to asking for all avilable known extensions.
@@ -597,9 +601,15 @@ ResultOrError<VulkanDeviceKnobs> Device::CreateDevice(VkPhysicalDevice vkPhysica
         DAWN_ASSERT(features2.pNext == nullptr);
         createInfo.pEnabledFeatures = &usedKnobs.features;
     }
-
-    DAWN_TRY(CheckVkSuccess(fn.CreateDevice(vkPhysicalDevice, &createInfo, nullptr, &mVkDevice),
-                            "vkCreateDevice"));
+    
+    if (overrides != nullptr && overrides->vkCreateDevice != nullptr) {
+        DAWN_TRY(CheckVkSuccess(overrides->vkCreateDevice(overrides->userdata, fn.GetInstanceProcAddr, GetVkInstance(), vkPhysicalDevice, &createInfo, nullptr, &mVkDevice),
+                                "VulkanFunctionOverrides->vkCreateDevice"));
+    } else {
+        DAWN_TRY(CheckVkSuccess(fn.CreateDevice(vkPhysicalDevice, &createInfo, nullptr, &mVkDevice),
+                                "vkCreateDevice"));
+    }
+    
 
     return usedKnobs;
 }

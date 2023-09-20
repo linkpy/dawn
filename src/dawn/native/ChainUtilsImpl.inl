@@ -23,6 +23,10 @@ namespace d3d {
 struct RequestAdapterOptionsLUID;
 }
 
+namespace vulkan {
+struct VulkanFunctionOverrides;
+}
+
 namespace d3d11 {
 struct SharedTextureMemoryD3D11Texture2DDescriptor;
 }
@@ -43,6 +47,10 @@ struct AdditionalExtensions<InstanceDescriptor> {
 };
 
 template <>
+constexpr inline wgpu::SType STypeForImpl<vulkan::VulkanFunctionOverrides> =
+    wgpu::SType(WGPUSType_VulkanFunctionOverrides);
+
+template <>
 constexpr inline wgpu::SType STypeForImpl<d3d::RequestAdapterOptionsLUID> =
     wgpu::SType(WGPUSType_RequestAdapterOptionsLUID);
 
@@ -53,7 +61,8 @@ constexpr inline wgpu::SType STypeForImpl<opengl::RequestAdapterOptionsGetGLProc
 template <>
 struct AdditionalExtensions<RequestAdapterOptions> {
     using List = AdditionalExtensionsList<const d3d::RequestAdapterOptionsLUID*,
-                                          const opengl::RequestAdapterOptionsGetGLProc*>;
+                                          const opengl::RequestAdapterOptionsGetGLProc*,
+                                          const vulkan::VulkanFunctionOverrides*>;
 };
 
 template <>
@@ -64,6 +73,12 @@ template <>
 struct AdditionalExtensions<SharedTextureMemoryDescriptor> {
     using List =
         AdditionalExtensionsList<const d3d11::SharedTextureMemoryD3D11Texture2DDescriptor*>;
+};
+
+template <>
+struct AdditionalExtensions<DeviceDescriptor> {
+    using List =
+        AdditionalExtensionsList<const vulkan::VulkanFunctionOverrides*>;
 };
 
 }  // namespace detail

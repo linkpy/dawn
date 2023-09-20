@@ -288,6 +288,10 @@ DAWN_NATIVE_EXPORT std::vector<const ToggleInfo*> AllToggleInfos();
 
 DAWN_NATIVE_EXPORT FeatureInfo GetFeatureInfo(wgpu::FeatureName featureName);
 
+DAWN_NATIVE_EXPORT WGPUAdapter GetWGPUAdapter(WGPUDevice device);
+
+DAWN_NATIVE_EXPORT WGPUBackendType GetWGPUBackendType(WGPUAdapter adapter);
+
 }  // namespace dawn::native
 
 #endif  // INCLUDE_DAWN_NATIVE_DAWNNATIVE_H_
